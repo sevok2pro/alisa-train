@@ -1,0 +1,29 @@
+{
+  "name": "alisa-train",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/sevok2pro/alisa-train#readme",
+  "bugs": {
+    "url": "https://github.com/sevok2pro/alisa-train/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sevok2pro/alisa-train.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "run": "node index.ts",
+    "test": "node check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0"
+  }
+}
