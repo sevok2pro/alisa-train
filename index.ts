@@ -1,5 +1,5 @@
 import http from 'node:http'
-import { hashSync, compareSync, hash, compare } from 'bcrypt'
+import { hashSync, hash, compare } from 'bcrypt'
 
 const db: User[] = [{user: 'admin', password: hashSync('adminadminadmin', 10)}]
 
@@ -16,7 +16,8 @@ function readJSON(body: any[]): {status: 'failure' | 'success', result?: Partial
     }
 }
 
-function validateUserDto(user?: Partial<User>): {success: true} | {success: false, reason: string}{
+type DtoValidatorExclude = Set<'passwordLength'>;
+function validateUserDto(user?: Partial<User>, excluedeRules?: DtoValidatorExclude): {success: true} | {success: false, reason: string}{
     if (!user) {
         return {success: false, reason: 'missing username and password fields'}
     }
@@ -30,23 +31,23 @@ function validateUserDto(user?: Partial<User>): {success: true} | {success: fals
         return {success: false, reason: 'user must be a not empty string'}
     }
     if (!user.password){
-        return {success: false, reason: 'missing passsword field'}
+        return {success: false, reason: 'missing password field'}
     }
     if (typeof user.password !== 'string') {
         return {success: false, reason: 'password must be a string'}
     }
-    if (user.password.length < 8) {
+    if (user.password.length < 8 && !excluedeRules?.has('passwordLength')) {
         return {success: false, reason: 'password should have length more than 8 symbol'}
     }
     return {success: true}
 }
 
-function readUserBody(body: any[]): {status: 'failure', reason: string } | {status: 'success', result: User} {
+function readUserBody(body: any[], excluedeRules?: DtoValidatorExclude): {status: 'failure', reason: string } | {status: 'success', result: User} {
     const json = readJSON(body);
     if(json.status === 'failure') {
         return {status: 'failure', reason: 'invalid json'}
     }
-    const validation = validateUserDto(json.result);
+    const validation = validateUserDto(json.result, excluedeRules);
     if (!validation.success) {
         return {status: 'failure', reason: validation.reason}
     }
@@ -66,14 +67,16 @@ async function authenticateUser(user: User): Promise<OperationResult> {
 }
 
 async function registerUser(user: User): Promise<OperationResult> {
-    const hashedPass = await hash(user.password, 10);
     const bdUser = db.find(next => next.user === user.user);
     if (bdUser) {
         return { status: 'failure', reason: 'user already exist', statusCode: 409 };
     }
+    const hashedPass = await hash(user.password, 10);
     db.push({user: user.user, password: hashedPass})
     return {status: 'success'}
 }
+
+const loginDtoRules: DtoValidatorExclude = new Set(['passwordLength']);
 
 const server = http.createServer((req, res) => {
     const { method, url } = req;
@@ -81,7 +84,7 @@ const server = http.createServer((req, res) => {
         const body:any[] = [];
         req.on('data', chunk => body.push(chunk));
         req.on('end', async () => {
-            const bodyResult = readUserBody(body);
+            const bodyResult = readUserBody(body, loginDtoRules);
             if (bodyResult.status === 'failure') {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');

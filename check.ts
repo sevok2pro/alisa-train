@@ -6,7 +6,6 @@ test('empty body check', async () => {
     const result = await fetch('http://localhost:4200/login', { method: 'POST' });
     const data = await result.json() as {reason: string};
     assert.equal(result.status, 400);
-    console.log(data.reason)
     assert.equal(data.reason, 'invalid json')
 })
 
@@ -41,4 +40,39 @@ test('new user can register and then login', async () => {
     const newUserLogin = await newUserAuth.json() as {status: 'success'};
     assert.equal(newUserAuth.status, 200);
     assert.equal(newUserLogin.status, 'success');
+})
+
+test('short password reject', async () => {
+    const newUserPass = randomUUID();
+    const newUser = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user2', password: newUserPass.slice(0, 4)}) });
+    const newUserResponse = await newUser.json() as {status: string, reason: string};
+    assert.equal(newUser.status, 400);
+    assert.equal(newUserResponse.status, 'failure');
+    assert.equal(newUserResponse.reason, 'password should have length more than 8 symbol');
+})
+
+test('without password reject', async () => {
+    const newUser = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user3'}) });
+    const newUserResponse = await newUser.json() as {status: string, reason: string};
+    assert.equal(newUser.status, 400);
+    assert.equal(newUserResponse.status, 'failure');
+    assert.equal(newUserResponse.reason, 'missing password field');
+})
+
+test('with password is object reject', async () => {
+    const newUser = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user5', password: {kek: 'kek'}}) });
+    const newUserResponse = await newUser.json() as {status: string, reason: string};
+    assert.equal(newUser.status, 400);
+    assert.equal(newUserResponse.status, 'failure');
+    assert.equal(newUserResponse.reason, 'password must be a string');
+})
+
+test('second register with same name will reject', async () => {
+    const newUserPass = randomUUID();
+    const newUser = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user1', password: newUserPass}) });
+    const newUserAuth = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user1', password: randomUUID()}) });
+    const newUserLogin = await newUserAuth.json() as {status: string, reason: string};
+    assert.equal(newUserAuth.status, 409);
+    assert.equal(newUserLogin.status, 'failure');
+    assert.equal(newUserLogin.reason, 'user already exist');
 })
