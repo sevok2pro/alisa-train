@@ -1,9 +1,14 @@
 import http from 'node:http'
-import { hashSync, compareSync } from 'bcrypt'
+import { hashSync, compareSync, hash, compare } from 'bcrypt'
 
-const db = [{user: 'admin', password: hashSync('admin', 10)}]
+const db: User[] = [{user: 'admin', password: hashSync('admin', 10)}]
 
-function readJSON(body: any[]) {
+interface User {
+    user: string;
+    password: string;
+}
+
+function readJSON(body: any[]): {status: 'failure' | 'success', result?: Partial<User>} {
     try {
         return {status: 'success', result: JSON.parse(Buffer.concat(body).toString())}
     } catch(e) {
@@ -11,35 +16,57 @@ function readJSON(body: any[]) {
     }
 }
 
+function validateUserDto(user?: Partial<User>): {success: true} | {success: false, reason: string}{
+    if (!user) {
+        return {success: false, reason: 'missing username and password fields'}
+    }
+    if (!user.user) {
+        return {success: false, reason: 'missing username field'}
+    }
+    if (!user.password){
+        return {success: false, reason: 'missing passsword field'}
+    }
+    return {success: true}
+}
+
+function readUserBody(body: any[]): {status: 'failure', reason: string } | {status: 'success', result: User} {
+    const json = readJSON(body);
+    if(json.status === 'failure') {
+        return {status: 'failure', reason: 'invalid json'}
+    }
+    const validation = validateUserDto(json.result);
+    if (!validation.success) {
+        return {status: 'failure', reason: validation.reason}
+    }
+    return { status: 'success', result: json.result as User }
+}
+
 const server = http.createServer((req, res) => {
     const { method, url } = req;
     if (url === '/login' && method === 'POST') {
         const body:any[] = [];
         req.on('data', chunk => body.push(chunk));
-        req.on('end', () => {
-            const { result: bodyData, status } = readJSON(body);
-            if (status === 'failure') {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'text/json');
-                res.end(JSON.stringify({status: 'failure', reason: 'invalid json request body'}))
+        req.on('end', async () => {
+            const bodyResult = readUserBody(body);
+            if (bodyResult.status === 'failure') {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: bodyResult.status, reason: bodyResult.reason }))
                 return;
             }
-            const user = db.find(next => next.user === bodyData.user);
-            if (!user) {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'text/json');
-                res.end(JSON.stringify({status: 'failure', reason: 'user not found'}))
+            
+            const user = db.find(next => next.user === bodyResult.result.user);
+            const passCompare = user ? await compare(bodyResult.result.password, user.password): false;
+
+            if (!user || !passCompare) {
+                res.statusCode = 401;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({status: 'failure', reason: 'invalid username or password'}))
                 return;
             }
-            const passCompare = compareSync(bodyData.password, user.password);
-            if (!passCompare) {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'text/json');
-                res.end(JSON.stringify({status: 'failure', reason: 'password is wrong'}))
-                return;
-            }
+            
             res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/json');
+            res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({status: 'success'}))
             return;
         })
@@ -47,24 +74,25 @@ const server = http.createServer((req, res) => {
     if (url === '/register' && method === 'POST') {
         const body: any[] = [];
         req.on('data', chunk => body.push(chunk));
-        req.on('end', () => {
-            const { result: bodyData, status } = readJSON(body);
-            if (status === 'failure') {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'text/json');
-                res.end(JSON.stringify({status: 'failure', reason: 'invalid json request body'}))
+        req.on('end', async () => {
+            const bodyResult = readUserBody(body);
+            if (bodyResult.status === 'failure') {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: bodyResult.status, reason: bodyResult.reason }))
                 return;
             }
-            const user = db.find(next => next.user === bodyData.user);
+            const user = db.find(next => next.user === bodyResult.result.user);
             if (user) {
-                res.statusCode = 403;
-                res.setHeader('Content-Type', 'text/json');
+                res.statusCode = 409;
+                res.setHeader('Content-Type', 'application/json');
                 res.end(JSON.stringify({status: 'failure', reason: 'user already exist'}))
                 return;
             }
-            db.push({user: bodyData.user, password: hashSync(bodyData.password, 10)})
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/json');
+            const hashedPass = await hash(bodyResult.result.password, 10);
+            db.push({user: bodyResult.result.user, password: hashedPass})
+            res.statusCode = 201;
+            res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({status: 'success'}))
         return;
         })

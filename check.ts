@@ -1,7 +1,4 @@
-import http from 'node:http'
 import { randomUUID } from 'node:crypto'
-
-const agent = new http.Agent({keepAlive: true})
 
 async function test() {
     const adminAuth = await fetch('http://localhost:4200/login', { method: 'POST', body: JSON.stringify({user: 'admin', password: 'admin'}) });
