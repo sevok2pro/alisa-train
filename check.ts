@@ -1,27 +1,26 @@
 import http from 'node:http'
+import { randomUUID } from 'node:crypto'
 
 const agent = new http.Agent({keepAlive: true})
 
 async function test() {
-    // http.request('http://localhost:4200', {agent, method: 'POST'}, (response) => {
-    //     response.resume();
-    //     response.on('data', (data) => {
-    //         console.log('data: ', data.toString())
-    //     })
-    //     response.on('end', () => {
-    //         console.log('complete: ', response.complete)
-    //     })
-    // })
+    const adminAuth = await fetch('http://localhost:4200/login', { method: 'POST', body: JSON.stringify({user: 'admin', password: 'admin'}) });
+    console.log('adminAuth', await adminAuth.json())
 
-    http.get('http://localhost:4200/auth', {agent, method: 'POST'}, (response) => {
-        response.resume();
-        response.on('data', (data) => {
-            console.log('data: ', data.toString())
-        })
-        response.on('end', () => {
-            console.log('complete: ', response.complete)
-        })
-    })
+    const adminAuthUserNotFound = await fetch('http://localhost:4200/login', { method: 'POST', body: JSON.stringify({user: 'admin2', password: 'admin'}) });
+    console.log('adminAuthUserNotFound', await adminAuthUserNotFound.json())
+
+    const adminAuthPassWrong = await fetch('http://localhost:4200/login', { method: 'POST', body: JSON.stringify({user: 'admin', password: 'admin2'}) });
+    console.log('adminAuthPassWrong', await adminAuthPassWrong.json())
+
+    const newUserPass = randomUUID();
+    const newUser = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user1', password: newUserPass}) });
+    console.log('newUser', await newUser.json())
+    const newUserAuth = await fetch('http://localhost:4200/login', { method: 'POST', body: JSON.stringify({user: 'user1', password: newUserPass}) });
+    console.log('newUserAuth', await newUserAuth.json())
+
+    const userSameNameError = await fetch('http://localhost:4200/register', { method: 'POST', body: JSON.stringify({user: 'user1', password: 'user1'}) });
+    console.log('userSameNameError', await userSameNameError.json())
 }
 
 test();
