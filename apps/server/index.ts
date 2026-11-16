@@ -135,8 +135,6 @@ const server = http.createServer((req, res) => {
         res.setHeader('Content-Type', 'text/plain');
         res.end('Content not found')
     }
-    
-    
 })
 
 server.listen(4200, '127.0.0.1', () => {

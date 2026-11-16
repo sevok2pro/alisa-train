@@ -16,7 +16,8 @@
   "main": "index.ts",
   "scripts": {
     "run": "node index.ts",
-    "test": "node check.ts"
+    "test": "node check.ts",
+    "ts:check": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
