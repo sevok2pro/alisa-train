@@ -15,8 +15,8 @@
   "type": "module",
   "main": "index.ts",
   "scripts": {
-    "run": "node index.ts",
-    "test": "node check.ts",
+    "run": "node apps/server/index.ts",
+    "test": "node apps/server/testRunner.ts",
     "ts:check": "tsc --noEmit"
   },
   "devDependencies": {

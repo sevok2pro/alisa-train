@@ -1,5 +1,6 @@
 import http from 'node:http'
 import { hashSync, hash, compare } from 'bcrypt'
+import { env } from 'node:process'
 
 const db: User[] = [{user: 'admin', password: hashSync('adminadminadmin', 10)}]
 
@@ -137,6 +138,7 @@ const server = http.createServer((req, res) => {
     }
 })
 
-server.listen(4200, '127.0.0.1', () => {
-    console.log('server run')
+const port = Number(env['SERVER_PORT']) || 4200
+server.listen(port, '127.0.0.1', () => {
+    console.log(`server run, port: ${port}`)
 })
