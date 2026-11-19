@@ -34,23 +34,26 @@ async function whenServerReady(cnt = 0) {
     }
 }
 
+let testStatus: number | null;
 function runTest(server: ChildProcessWithoutNullStreams) {
     const testProcess = spawn('node', ['apps/server/check.ts'], {env: {'SERVER_PORT': String(freePort)}})  
     testProcess.stdout.pipe(stdout)
     testProcess.stderr.pipe(stderr)  
     // Корректное завершение процесса  
     testProcess.on('close', (code) => {
+        
         console.log(`Процесс тестов завершен с кодом: ${code}`) 
     })  
     // Процесс завершен с кодом  
-    testProcess.on('exit', (code, signal) => {  
-        server.kill();
-        testProcess.kill();
-        console.log(`Выход из тестов с кодом: ${code}, сигнал: ${signal}`)  
-        process.exit(code)
+    testProcess.on('exit', async (code) => {  
+        testStatus = code;
+        console.log('Test process exit', code);
+        server.kill('SIGTERM');
     })  
     // Ошибка при запуске  
-    testProcess.on('error', (error) => {  
+    testProcess.on('error', (error) => {
+        console.log('Test process run failure');
+        server.kill('SIGTERM');
         console.error(error)  
     })
 }
@@ -64,8 +67,8 @@ serverProcess.on('spawn', async () => {
         console.log('ready for test');
         runTest(serverProcess);
     } else {
+        serverProcess.kill();
         console.error('failed to startup server')
-        process.exit(1);
     }
 })
 // Корректное завершение процесса  
@@ -74,10 +77,16 @@ serverProcess.on('close', (code) => {
 })  
 // Процесс завершен с ошибкой  
 serverProcess.on('exit', (code, signal) => {  
-    console.log(`Выход из сервера с кодом: ${code}, сигнал: ${signal}`)  
-    process.exit(1)
+    console.log('Server process shut down');
+    if (testStatus === 0) {
+        process.exit(0)
+    } else {
+        process.exit(1)
+    }
 })  
 // Ошибка при запуске  
-serverProcess.on('error', (error) => {  
-    console.error(error)  
+serverProcess.on('error', (error) => { 
+    console.error('failed to startup server') 
+    console.error(error)
+    process.exit(1)
 })
