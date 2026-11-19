@@ -81,6 +81,12 @@ const loginDtoRules: DtoValidatorExclude = new Set(['passwordLength']);
 
 const server = http.createServer((req, res) => {
     const { method, url } = req;
+    if (url === '/ping') {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('pong');
+        return;
+    }
     if (url === '/login' && method === 'POST') {
         const body:any[] = [];
         req.on('data', chunk => body.push(chunk));
@@ -142,3 +148,12 @@ const port = Number(env['SERVER_PORT']) || 4200
 server.listen(port, '127.0.0.1', () => {
     console.log(`server run, port: ${port}`)
 })
+
+function shutDown() {
+    server.close(() => {
+        process.exit(0)
+    });
+}
+
+process.on('SIGTERM', shutDown);
+process.on('SIGINT', shutDown);
